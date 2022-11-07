@@ -1,16 +1,32 @@
 package com.udacity.project4
 
+import android.app.Activity
 import android.app.Application
+import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider.getApplicationContext
+import androidx.test.espresso.Espresso
+import androidx.test.espresso.IdlingRegistry
+import androidx.test.espresso.action.ViewActions
+import androidx.test.espresso.assertion.ViewAssertions
+import androidx.test.espresso.matcher.RootMatchers
+import androidx.test.espresso.matcher.RootMatchers.withDecorView
+import androidx.test.espresso.matcher.ViewMatchers
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import com.udacity.project4.locationreminders.RemindersActivity
 import com.udacity.project4.locationreminders.data.ReminderDataSource
 import com.udacity.project4.locationreminders.data.local.LocalDB
 import com.udacity.project4.locationreminders.data.local.RemindersLocalRepository
 import com.udacity.project4.locationreminders.reminderslist.RemindersListViewModel
 import com.udacity.project4.locationreminders.savereminder.SaveReminderViewModel
+import com.udacity.project4.util.DataBindingIdlingResource
+import com.udacity.project4.util.monitorActivity
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import org.hamcrest.CoreMatchers
+import org.junit.After
 import org.junit.Before
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.core.context.startKoin
@@ -27,6 +43,8 @@ class RemindersActivityTest :
 
     private lateinit var repository: ReminderDataSource
     private lateinit var appContext: Application
+    private val dataBindingIdlingResource = DataBindingIdlingResource()
+
 
     /**
      * As we use Koin as a Service Locator Library to develop our code, we'll also use Koin to test our code.
@@ -63,6 +81,69 @@ class RemindersActivityTest :
         runBlocking {
             repository.deleteAllReminders()
         }
+    }
+    @Before
+    fun registerIdlingResource() {
+        IdlingRegistry.getInstance().register(dataBindingIdlingResource)
+    }
+
+    @After
+    fun unregisterIdlingResource() {
+        IdlingRegistry.getInstance().unregister(dataBindingIdlingResource)
+    }
+    @Test
+    fun addNewReminder_ReminderListShowsNewReminderAndToast() = runBlocking {
+        var activity: Activity? = null
+
+        // GIVEN - an empty ReminderList
+        val activityScenario = ActivityScenario.launch(RemindersActivity::class.java)
+        activityScenario.onActivity {
+            activity=it
+        }
+        dataBindingIdlingResource.monitorActivity(activityScenario)
+
+
+
+        // WHEN - new Reminder added
+        Espresso.onView(ViewMatchers.withId(R.id.addReminderFAB)).perform(ViewActions.click())
+        Espresso.onView(ViewMatchers.withId(R.id.reminderTitle))
+            .perform(ViewActions.replaceText("Title"))
+        Espresso.onView(ViewMatchers.withId(R.id.reminderDescription))
+            .perform(ViewActions.replaceText("Description"))
+        Espresso.onView(ViewMatchers.withId(R.id.selectLocation)).perform(ViewActions.click())
+        Espresso.onView(ViewMatchers.withId(R.id.select_map)).perform(ViewActions.longClick())
+        Espresso.onView(ViewMatchers.withId(R.id.save_button)).perform(ViewActions.click())
+        Espresso.onView(ViewMatchers.withId(R.id.saveReminder)).perform(ViewActions.click())
+
+        // THEN -  shows  toast
+        Espresso.onView(ViewMatchers.withText(R.string.reminder_saved))
+            .inRoot(withDecorView(CoreMatchers.not((activity?.window?.decorView))))
+            .check(ViewAssertions.matches(ViewMatchers.isDisplayed()))
+        activityScenario.close()
+    }
+    @Test
+    fun addNewReminderWithoutLocation_ShowsSnackbar() = runBlocking {
+
+        val activityScenario = ActivityScenario.launch(RemindersActivity::class.java)
+        dataBindingIdlingResource.monitorActivity(activityScenario)
+
+        // GIVEN - an SaveReminder Screen without Selected Location
+        Espresso.onView(ViewMatchers.withId(R.id.addReminderFAB)).perform(ViewActions.click())
+        Espresso.onView(ViewMatchers.withId(R.id.reminderTitle))
+            .perform(ViewActions.replaceText("Title"))
+        Espresso.onView(ViewMatchers.withId(R.id.reminderDescription))
+            .perform(ViewActions.replaceText("Description"))
+
+        // WHEN - click saveButton
+        Espresso.onView(ViewMatchers.withId(R.id.saveReminder)).perform(ViewActions.click())
+
+        // THEN - shows Snackbar
+        Espresso.onView(ViewMatchers.withId(com.google.android.material.R.id.snackbar_text))
+            .check(ViewAssertions.matches(ViewMatchers.isDisplayed()))
+
+        activityScenario.close()
+
+
     }
 
 

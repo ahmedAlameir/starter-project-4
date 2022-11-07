@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.annotation.TargetApi
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
 import android.content.pm.PackageManager
@@ -12,8 +13,11 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.databinding.DataBindingUtil
+import androidx.fragment.app.Fragment
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
 import com.google.android.material.snackbar.Snackbar
@@ -23,8 +27,16 @@ import com.udacity.project4.base.NavigationCommand
 import com.udacity.project4.databinding.FragmentSaveReminderBinding
 import com.udacity.project4.locationreminders.geofence.GeofenceBroadcastReceiver
 import com.udacity.project4.locationreminders.reminderslist.ReminderDataItem
-import com.udacity.project4.utils.setDisplayHomeAsUpEnabled
+
+//import com.udacity.project4.utils.setDisplayHomeAsUpEnabled
 import org.koin.android.ext.android.inject
+fun Fragment.setDisplayHomeAsUpEnabled(bool: Boolean) {
+    if (activity is AppCompatActivity) {
+        (activity as AppCompatActivity).supportActionBar?.setDisplayHomeAsUpEnabled(
+            bool
+        )
+    }
+}
 
 class SaveReminderFragment : BaseFragment() {
     companion object {
@@ -52,6 +64,7 @@ class SaveReminderFragment : BaseFragment() {
         binding =
             DataBindingUtil.inflate(inflater, R.layout.fragment_save_reminder, container, false)
 
+
         setDisplayHomeAsUpEnabled(true)
 
         binding.viewModel = _viewModel
@@ -67,6 +80,8 @@ class SaveReminderFragment : BaseFragment() {
             _viewModel.navigationCommand.value =
                 NavigationCommand.To(SaveReminderFragmentDirections.actionSaveReminderFragmentToSelectLocationFragment())
         }
+        geofencingClient = LocationServices.getGeofencingClient(requireContext())
+
 
         binding.saveReminder.setOnClickListener {
             val title = _viewModel.reminderTitle.value
@@ -77,13 +92,8 @@ class SaveReminderFragment : BaseFragment() {
 
             reminderData = ReminderDataItem(title, description, location, latitude, longitude)
 
-            if (_viewModel.validateAndSaveReminder(reminderData)) {
+            checkPermissionsAndStartGeofencing()
 
-                checkPermissionsAndStartGeofencing()
-            }
-//            TODO: use the user entered reminder details to:
-//             1) add a geofencing request
-//             2) save the reminder to the local db
         }
     }
     @TargetApi(29)
@@ -116,8 +126,8 @@ class SaveReminderFragment : BaseFragment() {
             else -> REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
         }
         Log.d(TAG, "Request foreground only location permission")
-        ActivityCompat.requestPermissions(
-            requireActivity(),
+        requestPermissions(
+
             permissionsArray,
             resultCode
         )
@@ -154,11 +164,12 @@ class SaveReminderFragment : BaseFragment() {
         val settingsClient = LocationServices.getSettingsClient(requireActivity())
         val locationSettingsResponseTask =
             settingsClient.checkLocationSettings(builder.build())
+
         locationSettingsResponseTask.addOnFailureListener { exception ->
             if (exception is ResolvableApiException && resolve){
                 try {
-                    exception.startResolutionForResult(requireActivity(),
-                        REQUEST_TURN_DEVICE_LOCATION_ON)
+                    startIntentSenderForResult(exception.resolution.intentSender, REQUEST_TURN_DEVICE_LOCATION_ON, null, 0, 0, 0, null)
+
                 } catch (sendEx: IntentSender.SendIntentException) {
                     Log.d(TAG, "Error getting location settings resolution: " + sendEx.message)
                 }
@@ -179,7 +190,7 @@ class SaveReminderFragment : BaseFragment() {
     }
     @SuppressLint("MissingPermission")
     private fun addGeofenceForReminder() {
-        if(this::reminderData.isInitialized) {
+         if (_viewModel.validateAndSaveReminder(reminderData)){
             val currentGeofenceData = reminderData
 
 
@@ -210,23 +221,25 @@ class SaveReminderFragment : BaseFragment() {
                 PendingIntent.FLAG_UPDATE_CURRENT
             )
 
-            geofencingClient.removeGeofences(geofencePendingIntent)?.run {
-                addOnCompleteListener {
-                    geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)?.run {
-                        addOnSuccessListener {
+             geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)?.run {
+                 addOnSuccessListener {
 
-                            Log.e("Add Geofence", geofence.requestId)
+                     Log.e("Add Geofence", geofence.requestId)
 
-                        }
-                        addOnFailureListener {
+                 }
+                 addOnFailureListener {
+                     Toast.makeText(
+                         requireContext(), R.string.geofences_not_added,
+                         Toast.LENGTH_SHORT
+                     ).show()
 
-                            if ((it.message != null)) {
-                                Log.w(TAG, it.message!!)
-                            }
-                        }
-                    }
-                }
-            }
+                     if ((it.message != null)) {
+                         Log.w(TAG, it.message!!)
+                     }
+                 }
+             }
+
+
         }
     }
 

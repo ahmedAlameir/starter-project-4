@@ -32,6 +32,8 @@ import com.udacity.project4.databinding.FragmentSelectLocationBinding
 import com.udacity.project4.locationreminders.savereminder.SaveReminderViewModel
 import com.udacity.project4.utils.setDisplayHomeAsUpEnabled
 import org.koin.android.ext.android.inject
+import java.util.*
+
 private const val TAG = "SaveReminderFragment"
 class SelectLocationFragment : BaseFragment(),OnMapReadyCallback {
 
@@ -41,6 +43,7 @@ class SelectLocationFragment : BaseFragment(),OnMapReadyCallback {
     private lateinit var map: GoogleMap
     private lateinit var pointOfInterest: PointOfInterest
     private val REQUEST_LOCATION_PERMISSION = 1
+    private lateinit var selectedLocation: Marker
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -80,17 +83,38 @@ class SelectLocationFragment : BaseFragment(),OnMapReadyCallback {
         map.uiSettings.isZoomControlsEnabled = true
         setPoiClick(map)
         setMapStyle(map)
+        setMapLongClick(map)
         enableMyLocation()
+
     }
     private fun setPoiClick(map: GoogleMap) {
         map.setOnPoiClickListener { poi ->
-            pointOfInterest = poi
-            val poiMarker = map.addMarker(
+
+            selectedLocation = map.addMarker(
                 MarkerOptions()
                     .position(poi.latLng)
                     .title(poi.name)
             )
-            poiMarker.showInfoWindow()
+            selectedLocation.showInfoWindow()
+        }
+    }
+    private fun setMapLongClick(map: GoogleMap) {
+        map.setOnMapLongClickListener { latLng ->
+            // A Snippet is Additional text that's displayed below the title.
+            val snippet = String.format(
+                Locale.getDefault(),
+                "Lat: %1$.5f, Long: %2$.5f",
+                latLng.latitude,
+                latLng.longitude
+            )
+            selectedLocation = map.addMarker(
+                MarkerOptions()
+                    .position(latLng)
+                    .title(getString(R.string.dropped_pin))
+                    .snippet(snippet)
+
+            )
+            selectedLocation.showInfoWindow()
         }
     }
 
@@ -111,11 +135,11 @@ class SelectLocationFragment : BaseFragment(),OnMapReadyCallback {
     }
 
     private fun onLocationSelected() {
-        if (this::pointOfInterest.isInitialized) {
-            _viewModel.latitude.value = pointOfInterest.latLng.latitude
-            _viewModel.longitude.value = pointOfInterest.latLng.longitude
-            _viewModel.reminderSelectedLocationStr.value = pointOfInterest.name
-            _viewModel.selectedPOI.value=pointOfInterest
+        if (this::selectedLocation.isInitialized) {
+            _viewModel.latitude.value = selectedLocation.position.latitude
+            _viewModel.longitude.value = selectedLocation.position.longitude
+            _viewModel.reminderSelectedLocationStr.value = selectedLocation.title
+
             findNavController().popBackStack()
         } else {
             val toast = Toast.makeText(context, resources.getString(R.string.select_location), Toast.LENGTH_SHORT)
@@ -164,8 +188,8 @@ class SelectLocationFragment : BaseFragment(),OnMapReadyCallback {
             map.setMyLocationEnabled(true)
         }
         else {
-            ActivityCompat.requestPermissions(
-                context as Activity,
+            requestPermissions(
+
                 arrayOf<String>(Manifest.permission.ACCESS_FINE_LOCATION),
                 REQUEST_LOCATION_PERMISSION
             )
@@ -180,6 +204,11 @@ class SelectLocationFragment : BaseFragment(),OnMapReadyCallback {
         if (requestCode == REQUEST_LOCATION_PERMISSION) {
             if (grantResults.size > 0 && (grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
                 enableMyLocation()
+            }else{
+                Snackbar.make(
+                    binding.selectLocationFragment,
+                    R.string.location_required_error, Snackbar.LENGTH_INDEFINITE
+                )
             }
         }
     }

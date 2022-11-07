@@ -71,8 +71,7 @@ class RemindersListViewModelTest {
         remindersListViewModel.loadReminders()
 
         MatcherAssert.assertThat(
-            remindersListViewModel.showSnackBar.getOrAwaitValue(),
-            Matchers.`is`(Matchers.notNullValue())
+            remindersListViewModel.showSnackBar.getOrAwaitValue(),`is`("data couldn't be retrieved")
         )
     }
 
