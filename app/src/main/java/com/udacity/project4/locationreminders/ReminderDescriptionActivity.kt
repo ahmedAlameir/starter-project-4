@@ -35,5 +35,9 @@ class ReminderDescriptionActivity : AppCompatActivity() {
 
         binding.reminderDataItem = intent.getSerializableExtra(EXTRA_ReminderDataItem) as ReminderDataItem?
 
+        binding.descriptionExitButton.setOnClickListener{
+            onBackPressed()
+        }
+
     }
 }

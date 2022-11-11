@@ -5,6 +5,7 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.core.app.ApplicationProvider.getApplicationContext
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.google.firebase.FirebaseApp
 import com.udacity.project4.locationreminders.MainCoroutineRule
 import com.udacity.project4.locationreminders.data.FakeDataSource
 import com.udacity.project4.locationreminders.data.dto.ReminderDTO
@@ -39,7 +40,7 @@ class RemindersListViewModelTest {
     @Before
     fun createRepository() {
         stopKoin()
-
+        FirebaseApp.initializeApp(getApplicationContext())
         fakeRepo = FakeDataSource()
         remindersListViewModel = RemindersListViewModel(
             getApplicationContext(),

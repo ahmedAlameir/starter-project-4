@@ -208,7 +208,11 @@ class SelectLocationFragment : BaseFragment(),OnMapReadyCallback {
                 Snackbar.make(
                     binding.selectLocationFragment,
                     R.string.location_required_error, Snackbar.LENGTH_INDEFINITE
-                )
+                ).setAction(android.R.string.ok) {
+                    requestPermissions(
+                        arrayOf<String>(android.Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_LOCATION_PERMISSION
+                    )
+                }.show()
             }
         }
     }
